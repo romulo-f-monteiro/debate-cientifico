@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debate Científico - Jogo Educacional</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --color-1: #3b82f6; /* Azul default */
+            --color-2: #ef4444; /* Vermelho default */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: white;
+            overflow: hidden; /* Evita rolagem no projetor */
+            user-select: none;
+        }
+        .font-display { font-family: 'Orbitron', sans-serif; }
+        
+        /* Fundo animado científico */
+        .bg-particles {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(var(--color-1-rgb), 0.15), transparent 50%),
+                radial-gradient(circle at 85% 50%, rgba(var(--color-2-rgb), 0.15), transparent 50%),
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 30px 30px, 30px 30px;
+            z-index: -1;
+            transition: all 1s ease;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Barras de progresso */
+        .progress-container {
+            height: 70vh;
+            width: 80px;
+            background: rgba(0,0,0,0.5);
+            border-radius: 40px;
+            border: 2px solid rgba(255,255,255,0.1);
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+        }
+        .progress-fill {
+            position: absolute;
+            bottom: 0; left: 0; width: 100%;
+            height: 0%;
+            transition: height 1s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 40px;
+            box-shadow: 0 0 30px currentColor;
+        }
+        .progress-glow {
+            position: absolute;
+            top: -10px; left: 50%; transform: translateX(-50%);
+            width: 40px; height: 10px;
+            background: white; border-radius: 50%;
+            filter: blur(5px); opacity: 0.8;
+        }
+
+        /* Container de múltiplas barras */
+        .bars-wrapper {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            height: 50vh;
+        }
+
+        /* Grade de Perguntas */
+        .question-btn {
+            aspect-ratio: 1;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 3rem; font-weight: 800;
+            border-radius: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border: 2px solid #334155;
+            box-shadow: 5px 5px 15px #0a0f1c, -5px -5px 15px #141f38;
+        }
+        .question-btn:hover { transform: scale(1.05); border-color: #cbd5e1; }
+        .question-btn.intro { border-color: #fbbf24; box-shadow: 0 0 20px rgba(251, 191, 36, 0.4); color: #fbbf24; }
+        .question-btn.used { opacity: 0.3; pointer-events: none; filter: grayscale(100%); }
+
+        /* Animações */
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px currentColor; }
+            50% { box-shadow: 0 0 50px currentColor, inset 0 0 20px currentColor; }
+        }
+        .winning-pulse { animation: pulse-glow 2s infinite; }
+        
+        .screen { display: none; width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; }
+        .screen.active { display: flex; }
+
+        /* Modal customizado */
+        .custom-modal {
+            display: none; position: fixed; inset: 0; z-index: 100;
+            background: rgba(0,0,0,0.9); align-items: center; justify-content: center;
+            backdrop-filter: blur(10px);
+        }
+        .custom-modal.active { display: flex; }
+        
+        /* Tema de cores fixas disponíveis */
+        .color-opt { width: 40px; height: 40px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; }
+        .color-opt.selected { border-color: white; transform: scale(1.2); }
+        
+        /* Utilitários visuais */
+        .text-shadow { text-shadow: 2px 4px 10px rgba(0,0,0,0.8); }
+        .golden-glow { color: #fbbf24; text-shadow: 0 0 20px rgba(251,191,36,0.6); }
+    </style>
+</head>
+<body>
+
+    <div class="bg-particles" id="bg-particles"></div>
+
+    <div id="screen-setup" class="screen active flex-col p-10 items-center justify-center">
+        <div class="glass-panel p-10 rounded-3xl w-full max-w-6xl text-center shadow-2xl">
+            <h1 class="font-display text-6xl mb-10 font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600 text-shadow">
+                DEBATE CIENTÍFICO
+            </h1>
+            
+            <div class="grid grid-cols-2 gap-8 text-left mb-10">
+                <div class="bg-slate-800/50 p-6 rounded-2xl border border-slate-700">
+                    <h2 class="text-3xl font-bold mb-6 flex justify-between items-center">
+                        Grupos
+                        <button onclick="Game.addGroup()" class="text-sm bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg transition"><i class="fas fa-plus"></i> Adicionar</button>
+                    </h2>
+                    <div id="groups-setup-container" class="space-y-4 max-h-[40vh] overflow-y-auto pr-2">
+                        </div>
+                </div>
+
+                <div class="bg-slate-800/50 p-6 rounded-2xl border border-slate-700 flex flex-col justify-between">
+                    <div>
+                        <h2 class="text-3xl font-bold mb-6">Banco de Dados e Regras</h2>
+                        <div class="flex flex-col gap-4">
+                            <div class="flex justify-between items-center bg-slate-900/50 p-4 rounded-xl">
+                                <div>
+                                    <span class="block font-bold text-xl" id="question-count-display">0</span>
+                                    <span class="text-gray-400">Perguntas</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button onclick="UI.showModal('add-question-modal')" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg transition" title="Adicionar Pergunta Manualmente">
+                                        <i class="fas fa-plus"></i> Manual
+                                    </button>
+                                    <label class="bg-slate-700 hover:bg-slate-600 cursor-pointer px-4 py-2 rounded-lg transition" title="Importar JSON">
+                                        <i class="fas fa-file-import"></i> JSON
+                                        <input type="file" id="import-json" accept=".json" class="hidden" onchange="Game.importData(event)">
+                                    </label>
+                                    <button onclick="Game.exportData()" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg transition" title="Exportar JSON">
+                                        <i class="fas fa-file-export"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="flex gap-4">
+                                <button onclick="Game.openManageQuestions()" class="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl transition text-lg font-bold">
+                                    <i class="fas fa-list mr-2"></i> Gerenciar Perguntas
+                                </button>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-4">
+                                <button onclick="UI.showModal('weights-modal')" class="bg-slate-700 hover:bg-slate-600 py-3 rounded-xl transition text-lg font-bold">
+                                    <i class="fas fa-balance-scale mr-2"></i> Configurar Funções/Pesos
+                                </button>
+                                <button onclick="UI.showModal('rules-edit-modal')" class="bg-slate-700 hover:bg-slate-600 py-3 rounded-xl transition text-lg font-bold">
+                                    <i class="fas fa-gavel mr-2"></i> Editar Regras
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button onclick="Game.goToDraw()" class="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white font-bold py-5 rounded-xl text-3xl shadow-lg transform transition hover:scale-105 mt-8">
+                        COMEÇAR JOGO <i class="fas fa-play ml-3"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="screen-draw" class="screen flex-col p-10 items-center justify-center">
+        <div class="glass-panel p-12 rounded-3xl w-full max-w-5xl text-center">
+            <h2 class="font-display text-5xl mb-8 font-bold">Sorteio Inicial</h2>
+            <p class="text-2xl text-gray-300 mb-12">O sistema sorteará um número de 0 a 100. O grupo que chegar mais perto começa o jogo!</p>
+            
+            <div id="draw-groups-container" class="flex justify-center gap-8 mb-12 flex-wrap">
+                </div>
+
+            <div class="mb-12">
+                <div id="draw-result-display" class="font-display text-9xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 text-shadow h-32 flex items-center justify-center">
+                    ?
+                </div>
+            </div>
+
+            <button id="btn-draw" onclick="Game.executeDraw()" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-4 px-10 rounded-xl text-3xl shadow-lg transition hidden">
+                Realizar Sorteio
+            </button>
+            <button id="btn-draw-continue" onclick="Game.startMainGame()" class="bg-green-600 hover:bg-green-500 text-white font-bold py-4 px-10 rounded-xl text-3xl shadow-lg transition hidden">
+                Ir para o Jogo <i class="fas fa-arrow-right ml-2"></i>
+            </button>
+        </div>
+    </div>
+
+    <div id="screen-main" class="screen flex-col">
+        <div id="main-header" class="w-full p-4 flex justify-between items-center z-20 glass-panel border-b border-slate-700 bg-slate-900/90 shadow-md flex-shrink-0 transition-all duration-300">
+            <div class="font-display text-2xl sm:text-3xl font-bold tracking-widest text-shadow ml-4">DEBATE <span class="text-blue-400">CIENTÍFICO</span></div>
+            <div class="flex gap-4 mr-4">
+                <button onclick="Game.toggleFullscreen()" class="bg-slate-700 hover:bg-slate-600 px-4 sm:px-6 py-2 rounded-full font-bold transition text-sm sm:text-lg flex items-center" id="btn-fullscreen">
+                    <i class="fas fa-expand"></i> <span class="hidden sm:inline ml-2" id="text-fullscreen">Tela Cheia</span>
+                </button>
+                <button onclick="UI.showModal('rules-view-modal')" class="bg-slate-700 hover:bg-slate-600 px-4 sm:px-6 py-2 rounded-full font-bold transition text-sm sm:text-lg flex items-center">
+                    <i class="fas fa-book-open mr-2"></i> Regras
+                </button>
+                <button onclick="Game.declareWinner()" class="bg-yellow-600 hover:bg-yellow-500 text-white px-4 sm:px-6 py-2 rounded-full font-bold transition text-sm sm:text-lg shadow-[0_0_15px_rgba(202,138,4,0.5)] flex items-center">
+                    <i class="fas fa-trophy mr-2"></i> <span class="hidden sm:inline">Declarar</span> Vencedor
+                </button>
+            </div>
+        </div>
+
+        <div class="flex-grow flex flex-row overflow-hidden relative">
+            <div class="w-1/4 h-full flex flex-col items-center justify-center py-6 relative z-10 bg-gradient-to-r from-black/60 to-transparent" id="col-group-0">
+                <h2 class="font-display text-3xl sm:text-4xl font-black mb-2 text-shadow group-name uppercase truncate w-full text-center px-4">Grupo A</h2>
+                <div class="text-5xl sm:text-6xl font-bold mb-4 group-score" style="color: var(--color-1);">0</div>
+                
+                <div class="flex flex-col items-center mb-3 animate-pulse">
+                    <span class="text-4xl drop-shadow-[0_0_15px_rgba(251,191,36,0.8)]">🏆</span>
+                    <span class="font-bold text-yellow-400 uppercase tracking-widest text-xs sm:text-sm mt-1 text-center">Prêmio<br>MOVEL</span>
+                </div>
+                
+                <div class="bars-wrapper" id="bars-wrapper-0">
+                    <div class="progress-container">
+                        <div class="progress-fill" style="background-color: var(--color-1); height: 0%;">
+                            <div class="progress-glow"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-2/4 h-full flex items-center justify-center py-6 z-10 relative">
+                <div class="w-full max-w-4xl p-4 sm:p-8 glass-panel rounded-3xl flex flex-col h-[85vh]">
+                    <div class="flex justify-between items-end mb-6 border-b border-slate-700 pb-4">
+                        <h3 class="text-2xl sm:text-3xl font-bold">Painel de Questões</h3>
+                        <div class="text-xs sm:text-sm text-gray-400 flex items-center gap-4">
+                            <span class="flex items-center gap-2"><div class="w-3 h-3 bg-amber-400 rounded-full shadow-[0_0_10px_#fbbf24]"></div> Introdutória</span>
+                            <span class="flex items-center gap-2"><div class="w-3 h-3 bg-slate-600 rounded-full"></div> Usada</span>
+                        </div>
+                    </div>
+                    
+                    <div id="question-grid" class="flex flex-wrap justify-center gap-4 overflow-y-auto pr-2 pb-4 content-start flex-grow">
+                        </div>
+                </div>
+            </div>
+
+            <div class="w-1/4 h-full flex flex-col items-center justify-center py-6 relative z-10 bg-gradient-to-l from-black/60 to-transparent" id="col-group-1">
+                 <h2 class="font-display text-3xl sm:text-4xl font-black mb-2 text-shadow group-name uppercase truncate w-full text-center px-4">Grupo B</h2>
+                <div class="text-5xl sm:text-6xl font-bold mb-4 group-score" style="color: var(--color-2);">0</div>
+                
+                <div class="flex flex-col items-center mb-3 animate-pulse">
+                    <span class="text-4xl drop-shadow-[0_0_15px_rgba(251,191,36,0.8)]">🏆</span>
+                    <span class="font-bold text-yellow-400 uppercase tracking-widest text-xs sm:text-sm mt-1 text-center">Prêmio<br>MOVEL</span>
+                </div>
+                
+                <div class="bars-wrapper" id="bars-wrapper-1">
+                    <div class="progress-container">
+                        <div class="progress-fill" style="background-color: var(--color-2); height: 0%;">
+                            <div class="progress-glow"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="question-modal" class="custom-modal p-4 md:p-8">
+        <div class="glass-panel w-full max-w-7xl h-full max-h-[95vh] flex flex-col rounded-3xl overflow-hidden relative">
+            <div class="p-6 md:p-8 border-b border-slate-700 flex justify-between items-center flex-shrink-0 bg-slate-900/50">
+                <div class="text-3xl font-bold text-gray-400">Pergunta <span id="qm-number" class="text-white">#1</span></div>
+                
+                <div class="flex items-center gap-4 bg-slate-900/80 px-6 py-3 rounded-full border border-slate-700">
+                    <i class="fas fa-clock text-2xl text-blue-400"></i>
+                    <span id="qm-timer-display" class="font-display text-5xl font-bold w-32 text-center">00:00</span>
+                    <div class="flex gap-2 border-l border-slate-700 pl-4">
+                        <button onclick="Timer.start()" class="w-10 h-10 bg-green-600 hover:bg-green-500 rounded-full flex items-center justify-center transition"><i class="fas fa-play"></i></button>
+                        <button onclick="Timer.pause()" class="w-10 h-10 bg-yellow-600 hover:bg-yellow-500 rounded-full flex items-center justify-center transition"><i class="fas fa-pause"></i></button>
+                        <button onclick="Timer.reset()" class="w-10 h-10 bg-red-600 hover:bg-red-500 rounded-full flex items-center justify-center transition"><i class="fas fa-stop"></i></button>
+                    </div>
+                </div>
+                
+                <button onclick="Game.closeQuestionModal()" class="text-gray-400 hover:text-white text-5xl transition"><i class="fas fa-times"></i></button>
+            </div>
+
+            <div class="flex-grow overflow-y-auto p-6 md:p-10 flex flex-col">
+                
+                <div class="flex-grow flex flex-col justify-center items-center w-full max-w-5xl mx-auto py-10">
+                    <h2 id="qm-text" class="text-4xl md:text-5xl lg:text-6xl font-bold text-center leading-tight text-shadow">
+                        Texto da pergunta aqui...
+                    </h2>
+
+                    <div class="flex flex-col items-center justify-center mt-12 w-full">
+                        <button id="btn-show-answer" onclick="Game.showAnswer()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-8 rounded-xl text-2xl transition shadow-lg mb-4">
+                            <i class="fas fa-eye mr-2"></i> Ver Resposta Padrão
+                        </button>
+                        <div id="qm-answer-box" class="hidden w-full bg-slate-800/90 border-2 border-blue-500/50 p-8 rounded-2xl text-center">
+                            <p class="text-blue-300 text-lg mb-2 uppercase font-bold tracking-widest">Resposta:</p>
+                            <p id="qm-answer-text" class="text-2xl md:text-3xl font-semibold"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="w-full max-w-6xl mx-auto mt-8 p-6 md:p-8 bg-slate-900/90 border border-slate-700 rounded-3xl shadow-2xl flex-shrink-0">
+                    <div class="flex flex-col gap-6">
+                        
+                        <div class="flex flex-col sm:flex-row items-center justify-between gap-4 w-full">
+                            <h3 class="text-2xl font-bold whitespace-nowrap">Atribuir Pontos:</h3>
+                            <label class="flex items-center gap-2 cursor-pointer bg-amber-900/30 px-4 py-2 rounded-lg border border-amber-500/30 text-amber-400 font-bold hover:bg-amber-900/50 transition">
+                                <input type="checkbox" id="qm-golden" class="w-5 h-5 accent-amber-500">
+                                <i class="fas fa-star"></i> Bônus (2x)
+                            </label>
+                        </div>
+                        
+                        <div class="flex flex-col md:flex-row gap-4 w-full">
+                            <select id="qm-group-select" class="flex-1 bg-slate-800 text-white text-xl p-4 rounded-xl border border-slate-600 focus:outline-none focus:border-blue-500">
+                                </select>
+                            <select id="qm-role-select" class="flex-1 bg-slate-800 text-white text-xl p-4 rounded-xl border border-slate-600 focus:outline-none focus:border-blue-500">
+                                </select>
+                            <select id="qm-contrib-select" class="flex-1 bg-slate-800 text-white text-xl p-4 rounded-xl border border-slate-600 focus:outline-none focus:border-blue-500">
+                                <option value="1.0">Resposta Principal (1x)</option>
+                                <option value="0.5">Resposta aberta (0.5x)</option>
+                            </select>
+                        </div>
+
+                        <button id="btn-award-points" onclick="Game.awardPoints()" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-4 rounded-xl text-2xl transition shadow-[0_0_15px_rgba(22,163,74,0.5)]">
+                            <i class="fas fa-plus-circle mr-2"></i> Pontuar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="add-question-modal" class="custom-modal">
+        <div class="glass-panel w-full max-w-2xl p-8 rounded-3xl flex flex-col">
+            <h2 class="text-3xl font-bold mb-6"><i class="fas fa-plus-circle text-blue-500 mr-2"></i>Adicionar/Editar Pergunta</h2>
+            <input type="hidden" id="new-q-id" value="">
+            <textarea id="new-q-text" placeholder="Digite a pergunta aqui..." class="w-full bg-slate-900 text-white p-4 rounded-xl border border-slate-600 text-lg mb-4 resize-none h-32 focus:border-blue-500 outline-none"></textarea>
+            <textarea id="new-q-answer" placeholder="Resposta padrão (opcional)..." class="w-full bg-slate-900 text-white p-4 rounded-xl border border-slate-600 text-lg mb-4 resize-none h-32 focus:border-blue-500 outline-none"></textarea>
+            <label class="flex items-center gap-2 mb-6 cursor-pointer text-lg text-gray-300 hover:text-white">
+                <input type="checkbox" id="new-q-intro" class="w-5 h-5 accent-amber-500">
+                <div class="w-3 h-3 bg-amber-400 rounded-full shadow-[0_0_10px_#fbbf24] ml-2"></div> Marcar como Pergunta Introdutória
+            </label>
+            <div class="flex justify-end gap-4">
+                <button onclick="document.getElementById('new-q-id').value=''; UI.hideModal('add-question-modal')" class="px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl font-bold transition">Cancelar</button>
+                <button onclick="Game.addManualQuestion()" class="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold transition shadow-lg">Salvar Pergunta</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="manage-questions-modal" class="custom-modal">
+        <div class="glass-panel w-full max-w-5xl p-8 rounded-3xl flex flex-col h-[85vh]">
+            <div class="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
+                <h2 class="text-3xl font-bold"><i class="fas fa-list text-blue-500 mr-2"></i>Banco de Perguntas</h2>
+                <button onclick="UI.hideModal('manage-questions-modal')" class="text-gray-400 hover:text-white text-4xl transition"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="questions-list-container" class="flex-grow overflow-y-auto space-y-3 pr-2">
+                </div>
+        </div>
+    </div>
+
+    <div id="weights-modal" class="custom-modal">
+        <div class="glass-panel w-full max-w-lg p-8 rounded-3xl flex flex-col">
+            <h2 class="text-3xl font-bold mb-6"><i class="fas fa-balance-scale text-blue-500 mr-2"></i>Funções e Pesos</h2>
+            
+            <div class="mb-4">
+                <label class="block text-gray-400 mb-1 text-sm uppercase tracking-wider font-bold">Função 1</label>
+                <div class="flex gap-2">
+                    <input type="text" id="name-prof" class="w-2/3 bg-slate-900 text-white p-3 rounded-xl border border-slate-600 text-xl focus:border-blue-500 outline-none" placeholder="Nome (Ex: Professor)">
+                    <input type="number" id="weight-prof" class="w-1/3 bg-slate-900 text-white p-3 rounded-xl border border-slate-600 text-xl focus:border-blue-500 outline-none" placeholder="Peso">
+                </div>
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-400 mb-1 text-sm uppercase tracking-wider font-bold">Função 2</label>
+                <div class="flex gap-2">
+                    <input type="text" id="name-pos" class="w-2/3 bg-slate-900 text-white p-3 rounded-xl border border-slate-600 text-xl focus:border-blue-500 outline-none" placeholder="Nome (Ex: Pós-Graduação)">
+                    <input type="number" id="weight-pos" class="w-1/3 bg-slate-900 text-white p-3 rounded-xl border border-slate-600 text-xl focus:border-blue-500 outline-none" placeholder="Peso">
+                </div>
+            </div>
+            <div class="mb-8">
+                <label class="block text-gray-400 mb-1 text-sm uppercase tracking-wider font-bold">Função 3</label>
+                <div class="flex gap-2">
+                    <input type="text" id="name-grad" class="w-2/3 bg-slate-900 text-white p-3 rounded-xl border border-slate-600 text-xl focus:border-blue-500 outline-none" placeholder="Nome (Ex: Graduação)">
+                    <input type="number" id="weight-grad" class="w-1/3 bg-slate-900 text-white p-3 rounded-xl border border-slate-600 text-xl focus:border-blue-500 outline-none" placeholder="Peso">
+                </div>
+            </div>
+            
+            <div class="flex justify-end gap-4">
+                <button onclick="UI.hideModal('weights-modal')" class="px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl font-bold transition">Cancelar</button>
+                <button onclick="Game.saveWeights()" class="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold transition shadow-lg">Salvar Configuração</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="rules-edit-modal" class="custom-modal">
+        <div class="glass-panel w-full max-w-4xl p-8 rounded-3xl flex flex-col h-[80vh]">
+            <h2 class="text-3xl font-bold mb-6">Editar Regras</h2>
+            <textarea id="rules-editor" class="w-full flex-grow bg-slate-900 text-white p-6 rounded-xl border border-slate-600 text-xl resize-none focus:outline-none focus:border-blue-500"></textarea>
+            <div class="flex justify-end gap-4 mt-6">
+                <button onclick="UI.hideModal('rules-edit-modal')" class="px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl font-bold transition text-lg">Cancelar</button>
+                <button onclick="Game.saveRules()" class="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold transition text-lg">Salvar Regras</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="rules-view-modal" class="custom-modal">
+        <div class="glass-panel w-full max-w-5xl p-10 rounded-3xl max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-8 border-b border-slate-700 pb-4">
+                <h2 class="text-5xl font-display font-bold text-blue-400"><i class="fas fa-book-open mr-4"></i>Regras do Jogo</h2>
+                <button onclick="UI.hideModal('rules-view-modal')" class="text-gray-400 hover:text-white text-4xl"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="rules-display" class="text-2xl leading-relaxed whitespace-pre-wrap"></div>
+        </div>
+    </div>
+
+    <div id="screen-winner" class="screen bg-gray-900 flex-col items-center justify-center relative z-50 overflow-y-auto">
+        <div class="absolute inset-0 overflow-hidden z-0">
+             <div class="absolute inset-0 bg-gradient-to-t from-yellow-900/50 to-transparent"></div>
+        </div>
+        <div class="z-10 text-center glass-panel p-10 md:p-16 rounded-[3rem] border-4 border-yellow-500 shadow-[0_0_100px_rgba(234,179,8,0.5)] my-8">
+            <i class="fas fa-award text-yellow-500 text-[6rem] md:text-[8rem] mb-6 drop-shadow-[0_0_30px_rgba(234,179,8,0.8)]"></i>
+            <h2 class="text-3xl md:text-4xl text-gray-300 font-bold mb-2 uppercase tracking-widest">Vencedor do Debate</h2>
+            <h1 id="winner-name" class="font-display text-6xl md:text-8xl font-black mb-6 text-white uppercase text-shadow">Grupo X</h1>
+            <div class="text-5xl font-bold text-yellow-400 mb-8"><span id="winner-score">0</span> Pontos</div>
+            
+            <div id="stats-report" class="text-xl text-gray-300 mb-8 bg-slate-800/80 p-6 rounded-2xl border border-slate-700 w-full max-w-3xl mx-auto shadow-inner">
+                </div>
+
+            <button onclick="location.reload()" class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-4 px-10 rounded-full text-2xl transition shadow-lg">
+                <i class="fas fa-redo mr-2"></i> Novo Jogo
+            </button>
+        </div>
+    </div>
+
+    <div id="msg-box" class="custom-modal z-[200]">
+        <div class="glass-panel p-8 rounded-2xl max-w-md text-center transform transition-transform scale-95">
+            <h3 id="msg-title" class="text-2xl font-bold mb-4">Aviso</h3>
+            <p id="msg-text" class="text-lg text-gray-300 mb-8"></p>
+            <button onclick="UI.hideMsg()" class="bg-blue-600 hover:bg-blue-500 px-8 py-3 rounded-xl font-bold transition w-full">OK</button>
+        </div>
+    </div>
+
+    <script>
+        
+        // Cores disponíveis com RGB precalculado para o gradiente de fundo
+        const GAME_COLORS = [
+            { hex: '#3b82f6', rgb: '59,130,246', name: 'Azul' },
+            { hex: '#ef4444', rgb: '239,68,68', name: 'Vermelho' },
+            { hex: '#22c55e', rgb: '34,197,94', name: 'Verde' },
+            { hex: '#a855f7', rgb: '168,85,247', name: 'Roxo' },
+            { hex: '#f97316', rgb: '249,115,22', name: 'Laranja' }
+        ];
+
+        // Regra Padrão (atualizada para Bônus)
+        const DEFAULT_RULES = "1. O grupo que respondeu à pergunta poderá permitir que outra pessoa do mesmo grupo complemente a resposta.\n\n2. O grupo adversário, se desejar, poderá apresentar uma explicação alternativa valendo pontuação maior, ou fazer uma complementação valendo pontuação menor.\n\n3. A cada contribuição científica relevante, o grupo poderá continuar ganhando pontos, a critério do moderador/professor.\n\n4. Pontuações base: Professor (10), Pós-graduação (20), Graduação (30).\n\n5. Bônus dobra a pontuação total da jogada.";
+
+        // 10 Perguntas Iniciais (Atividade Física e Saúde Pública)
+        const DEFAULT_QUESTIONS = [
+            { id: 1, isIntro: true, text: "Conceitue 'Atividade Física' e diferencie de 'Exercício Físico' no contexto da Saúde Pública.", answer: "Atividade física é qualquer movimento corporal que resulte em gasto energético acima do repouso (ex: varrer a casa). Exercício físico é uma atividade estruturada, planejada e repetitiva visando melhora do condicionamento." },
+            { id: 2, isIntro: true, text: "Segundo a OMS, qual é a recomendação semanal mínima de atividade física aeróbica moderada para adultos (18 a 64 anos)?", answer: "A OMS recomenda pelo menos 150 a 300 minutos de atividade física aeróbica de intensidade moderada por semana (ou 75-150m de intensidade vigorosa)." },
+            { id: 3, isIntro: false, text: "Explique a relação epidemiológica entre o comportamento sedentário e o desenvolvimento de Doenças Crônicas Não Transmissíveis (DCNTs).", answer: "O comportamento sedentário reduz a sensibilidade à insulina, altera o metabolismo lipídico e promove inflamação sistêmica de baixo grau, aumentando o risco de diabetes tipo 2, hipertensão e doenças cardiovasculares, independentemente do nível de atividade física realizada." },
+            { id: 4, isIntro: false, text: "No SUS (Sistema Único de Saúde), qual programa criado em 2011 tem como foco principal a inserção de polos de lazer e atividade física nas comunidades?", answer: "Programa Academia da Saúde." },
+            { id: 5, isIntro: false, text: "Múltipla Escolha: Qual indicador antropométrico é mais sensível para predizer risco cardiovascular em estudos populacionais?\nA) IMC\nB) Circunferência da Cintura\nC) Dobra Cutânea Tricipital\nD) Estatura", answer: "B) Circunferência da Cintura (reflete adiposidade visceral)." },
+            { id: 6, isIntro: false, text: "Como o ambiente construído (planejamento urbano) impacta os níveis de atividade física de uma população de baixa renda?", answer: "Falta de calçadas, ausência de iluminação, insegurança pública e escassez de parques em áreas periféricas diminuem as oportunidades de deslocamento ativo (caminhada/bicicleta) e lazer, exacerbando iniquidades em saúde." },
+            { id: 7, isIntro: false, text: "Defina o conceito de 'MET' (Equivalente Metabólico) e como ele é utilizado em estudos epidemiológicos de atividade física.", answer: "1 MET equivale à taxa metabólica de repouso (aprox. 3,5 ml O2/kg/min). É usado para classificar atividades como leves (<3 METs), moderadas (3-5.9 METs) ou vigorosas (≥6 METs), permitindo padronizar o gasto energético em populações." },
+            { id: 8, isIntro: false, text: "Qual o papel do exercício físico no tratamento não medicamentoso da Depressão Leve a Moderada, segundo as diretrizes atuais?", answer: "Promove neurogênese (aumento de BDNF), liberação de endorfinas/serotonina e melhora a autoeficácia, tendo efeito comparável a antidepressivos e psicoterapia nos quadros leves a moderados." },
+            { id: 9, isIntro: false, text: "Múltipla Escolha: Na transição demográfica e epidemiológica no Brasil, houve uma mudança no perfil de morbimortalidade. Isso exigiu da Saúde Pública focar em:\nA) Saneamento básico apenas.\nB) Promoção de saúde e prevenção de DCNTs.\nC) Construção de grandes hospitais infectológicos.\nD) Redução da vacinação.", answer: "B) Promoção de saúde e prevenção de DCNTs (devido ao envelhecimento populacional e estilo de vida moderno)." },
+            { id: 10, isIntro: false, text: "Argumente sobre as barreiras percebidas por mulheres idosas para a prática de atividade física de lazer, considerando recortes de gênero e idade.", answer: "Barreiras incluem: dor articular, medo de quedas, falta de companhia, obrigações de cuidado com netos/casa (trabalho reprodutivo não remunerado imposto pelo gênero) e falta de espaços adequados/seguros voltados para esta faixa etária." }
+        ];
+
+        const State = {
+            groups: [
+                { id: 0, name: "Grupo A", colorIndex: 0, score: 0 },
+                { id: 1, name: "Grupo B", colorIndex: 1, score: 0 }
+            ],
+            questions: [],
+            rules: "",
+            roleNames: { prof: "Professor", pos: "Pós-Graduação", grad: "Graduação" },
+            weights: { prof: 10, pos: 20, grad: 30 },
+            stats: { prof: 0, pos: 0, grad: 0 },
+            groupStats: [ // Estatísticas individuais de cada grupo
+                { prof: 0, pos: 0, grad: 0, totalAnswers: 0 },
+                { prof: 0, pos: 0, grad: 0, totalAnswers: 0 }
+            ],
+            targetScore: 500, // Pontuação para encher uma barra de progresso visualmente
+            currentQuestionId: null,
+            timerLimit: 120 // Segundos
+        };
+
+        const Timer = {
+            interval: null,
+            time: 0,
+            el: null,
+            init() {
+                this.el = document.getElementById('qm-timer-display');
+                this.reset();
+            },
+            start() {
+                if (this.interval) return;
+                this.interval = setInterval(() => {
+                    this.time++;
+                    this.updateDisplay();
+                }, 1000);
+            },
+            pause() {
+                clearInterval(this.interval);
+                this.interval = null;
+            },
+            reset() {
+                this.pause();
+                this.time = 0;
+                this.updateDisplay();
+            },
+            updateDisplay() {
+                const m = Math.floor(this.time / 60).toString().padStart(2, '0');
+                const s = (this.time % 60).toString().padStart(2, '0');
+                if(this.el) this.el.innerText = `${m}:${s}`;
+            }
+        };
+
+        const AudioSystem = {
+            ctx: null,
+            init() {
+                // Inicialização removida para manter o jogo sem som
+            },
+            playScore() {
+                // Função vazia: não toca som nenhum
+            }
+        };
+
+        const UI = {
+            showScreen(id) {
+                document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+                document.getElementById(id).classList.add('active');
+            },
+            showModal(id) { document.getElementById(id).classList.add('active'); },
+            hideModal(id) { document.getElementById(id).classList.remove('active'); },
+            msg(title, text) {
+                document.getElementById('msg-title').innerText = title;
+                document.getElementById('msg-text').innerText = text;
+                this.showModal('msg-box');
+            },
+            hideMsg() { this.hideModal('msg-box'); },
+            
+            updateBackgroundColors() {
+                // Atualiza o background baseado nas cores dos grupos
+                if(State.groups.length >= 2) {
+                    const root = document.documentElement;
+                    const c1 = GAME_COLORS[State.groups[0].colorIndex];
+                    const c2 = GAME_COLORS[State.groups[1].colorIndex];
+                    root.style.setProperty('--color-1', c1.hex);
+                    root.style.setProperty('--color-1-rgb', c1.rgb);
+                    root.style.setProperty('--color-2', c2.hex);
+                    root.style.setProperty('--color-2-rgb', c2.rgb);
+                }
+            },
+            
+            renderSetupGroups() {
+                const container = document.getElementById('groups-setup-container');
+                container.innerHTML = '';
+                State.groups.forEach((g, index) => {
+                    let colorsHTML = GAME_COLORS.map((c, i) => `
+                        <div class="color-opt ${g.colorIndex === i ? 'selected' : ''}" 
+                             style="background-color: ${c.hex}"
+                             onclick="Game.changeGroupColor(${index}, ${i})"></div>
+                    `).join('');
+
+                    container.innerHTML += `
+                        <div class="flex items-center gap-4 bg-slate-900 p-4 rounded-xl border border-slate-700 relative group">
+                            ${State.groups.length > 2 ? `<button onclick="Game.removeGroup(${index})" class="absolute -top-2 -right-2 bg-red-600 w-6 h-6 rounded-full flex items-center justify-center text-xs shadow opacity-0 group-hover:opacity-100 transition"><i class="fas fa-times"></i></button>` : ''}
+                            <div class="flex-grow">
+                                <input type="text" value="${g.name}" onchange="Game.changeGroupName(${index}, this.value)" 
+                                       class="w-full bg-transparent border-b-2 border-slate-600 focus:border-blue-500 text-xl font-bold p-1 outline-none transition uppercase">
+                            </div>
+                            <div class="flex gap-2">
+                                ${colorsHTML}
+                            </div>
+                        </div>
+                    `;
+                });
+                this.updateBackgroundColors();
+            }
+        };
+
+        const Game = {
+            init() {
+                this.loadLocalData();
+                UI.renderSetupGroups();
+                Timer.init();
+                
+                // Listener para mudanças no fullscreen
+                document.addEventListener('fullscreenchange', this.handleFullscreenChange);
+
+                // Interação global inicial para habilitar áudio
+                document.body.addEventListener('click', () => {
+                    if(!AudioSystem.ctx) AudioSystem.init();
+                }, { once: true });
+            },
+
+            // --- FULLSCREEN ---
+            toggleFullscreen() {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(err => {
+                        console.log(`Erro ao tentar modo tela cheia: ${err.message} (${err.name})`);
+                    });
+                } else {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    }
+                }
+            },
+            
+            handleFullscreenChange() {
+                const btn = document.getElementById('btn-fullscreen');
+                const text = document.getElementById('text-fullscreen');
+                const icon = btn.querySelector('i');
+                const header = document.getElementById('main-header');
+                
+                if (document.fullscreenElement) {
+                    // Está em tela cheia
+                    text.classList.add('hidden');
+                    text.classList.remove('sm:inline');
+                    icon.classList.remove('fa-expand');
+                    icon.classList.add('fa-compress');
+                    // Header mais discreto
+                    header.classList.remove('p-4');
+                    header.classList.add('p-2', 'opacity-50', 'hover:opacity-100');
+                } else {
+                    // Saiu da tela cheia
+                    text.classList.add('sm:inline');
+                    text.classList.remove('hidden');
+                    icon.classList.remove('fa-compress');
+                    icon.classList.add('fa-expand');
+                    // Restaura Header
+                    header.classList.add('p-4');
+                    header.classList.remove('p-2', 'opacity-50', 'hover:opacity-100');
+                }
+            },
+
+            // --- DADOS LOCALSTORAGE ---
+            loadLocalData() {
+                const savedQ = localStorage.getItem('debate_questions');
+                const savedR = localStorage.getItem('debate_rules');
+                const savedW = localStorage.getItem('debate_weights');
+                const savedN = localStorage.getItem('debate_role_names');
+                
+                State.questions = savedQ ? JSON.parse(savedQ) : JSON.parse(JSON.stringify(DEFAULT_QUESTIONS));
+                State.rules = savedR ? savedR : DEFAULT_RULES;
+                if(savedW) State.weights = JSON.parse(savedW);
+                if(savedN) State.roleNames = JSON.parse(savedN);
+                
+                document.getElementById('question-count-display').innerText = State.questions.length;
+                document.getElementById('rules-editor').value = State.rules;
+                document.getElementById('rules-display').innerText = State.rules;
+
+                // Preenche inputs de pesos/nomes na modal
+                document.getElementById('weight-prof').value = State.weights.prof;
+                document.getElementById('weight-pos').value = State.weights.pos;
+                document.getElementById('weight-grad').value = State.weights.grad;
+                
+                document.getElementById('name-prof').value = State.roleNames.prof;
+                document.getElementById('name-pos').value = State.roleNames.pos;
+                document.getElementById('name-grad').value = State.roleNames.grad;
+            },
+            saveLocalData() {
+                localStorage.setItem('debate_questions', JSON.stringify(State.questions));
+                localStorage.setItem('debate_rules', State.rules);
+                localStorage.setItem('debate_weights', JSON.stringify(State.weights));
+                localStorage.setItem('debate_role_names', JSON.stringify(State.roleNames));
+                document.getElementById('question-count-display').innerText = State.questions.length;
+            },
+
+            // --- PERGUNTAS MANUAIS ---
+            openManageQuestions() {
+                this.renderQuestionsList();
+                UI.showModal('manage-questions-modal');
+            },
+            
+            renderQuestionsList() {
+                const container = document.getElementById('questions-list-container');
+                if (State.questions.length === 0) {
+                    container.innerHTML = `<p class="text-gray-400 text-center mt-10 text-xl">Nenhuma pergunta cadastrada no banco.</p>`;
+                    return;
+                }
+                container.innerHTML = State.questions.map((q, i) => `
+                    <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-700 flex justify-between items-center gap-4 hover:border-blue-500 transition">
+                        <div class="flex-grow overflow-hidden">
+                            <div class="font-bold text-lg mb-1 text-blue-300">
+                                ${q.isIntro ? '<span class="text-amber-400 mr-2" title="Introdutória"><i class="fas fa-star text-xs"></i></span>' : ''}
+                                Pergunta ${i + 1}
+                            </div>
+                            <div class="text-gray-300 text-sm truncate" title="${q.text}">${q.text}</div>
+                        </div>
+                        <div class="flex gap-2 flex-shrink-0">
+                            <button onclick="Game.editQuestion(${q.id})" class="bg-blue-600 hover:bg-blue-500 w-10 h-10 rounded-lg flex items-center justify-center transition" title="Editar"><i class="fas fa-edit"></i></button>
+                            <button onclick="Game.deleteQuestion(${q.id})" class="bg-red-600 hover:bg-red-500 w-10 h-10 rounded-lg flex items-center justify-center transition" title="Excluir"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                `).join('');
+            },
+
+            deleteQuestion(id) {
+                if(confirm("Tem certeza que deseja excluir esta pergunta?")) {
+                    State.questions = State.questions.filter(q => q.id !== id);
+                    this.saveLocalData();
+                    this.renderQuestionsList();
+                }
+            },
+
+            editQuestion(id) {
+                const q = State.questions.find(q => q.id === id);
+                if(!q) return;
+                
+                document.getElementById('new-q-id').value = q.id;
+                document.getElementById('new-q-text').value = q.text;
+                document.getElementById('new-q-answer').value = q.answer;
+                document.getElementById('new-q-intro').checked = q.isIntro;
+                
+                UI.hideModal('manage-questions-modal');
+                UI.showModal('add-question-modal');
+            },
+
+            addManualQuestion() {
+                const idField = document.getElementById('new-q-id').value;
+                const text = document.getElementById('new-q-text').value.trim();
+                const answer = document.getElementById('new-q-answer').value.trim();
+                const isIntro = document.getElementById('new-q-intro').checked;
+                
+                if(!text) {
+                    UI.msg("Erro", "O texto da pergunta não pode estar vazio.");
+                    return;
+                }
+                
+                if (idField) {
+                    // Editar existente
+                    const qIndex = State.questions.findIndex(q => q.id == idField);
+                    if(qIndex !== -1) {
+                        State.questions[qIndex].text = text;
+                        State.questions[qIndex].answer = answer;
+                        State.questions[qIndex].isIntro = isIntro;
+                    }
+                } else {
+                    // Nova pergunta
+                    State.questions.push({
+                        id: Date.now(),
+                        isIntro: isIntro,
+                        text: text,
+                        answer: answer || "Nenhuma resposta cadastrada."
+                    });
+                }
+                
+                this.saveLocalData();
+                
+                // Limpa formulário
+                document.getElementById('new-q-id').value = '';
+                document.getElementById('new-q-text').value = '';
+                document.getElementById('new-q-answer').value = '';
+                document.getElementById('new-q-intro').checked = false;
+                
+                UI.hideModal('add-question-modal');
+                
+                // Se estava editando e veio da lista, volta para a lista. Senão, só fecha.
+                if (idField) {
+                    this.renderQuestionsList();
+                    UI.showModal('manage-questions-modal');
+                    UI.msg("Sucesso", "Pergunta atualizada com sucesso!");
+                } else {
+                    UI.msg("Sucesso", "Pergunta adicionada ao banco com sucesso!");
+                }
+            },
+
+            // --- PESOS E REGRAS ---
+            saveWeights() {
+                const profWeight = parseInt(document.getElementById('weight-prof').value);
+                const posWeight = parseInt(document.getElementById('weight-pos').value);
+                const gradWeight = parseInt(document.getElementById('weight-grad').value);
+                
+                const profName = document.getElementById('name-prof').value.trim() || "Professor";
+                const posName = document.getElementById('name-pos').value.trim() || "Pós-Graduação";
+                const gradName = document.getElementById('name-grad').value.trim() || "Graduação";
+                
+                if(isNaN(profWeight) || isNaN(posWeight) || isNaN(gradWeight)) {
+                    UI.msg("Erro", "Insira valores numéricos válidos para os pesos.");
+                    return;
+                }
+                
+                State.weights = { prof: profWeight, pos: posWeight, grad: gradWeight };
+                State.roleNames = { prof: profName, pos: posName, grad: gradName };
+                
+                this.saveLocalData();
+                UI.hideModal('weights-modal');
+                UI.msg("Sucesso", "Funções e pesos atualizados.");
+            },
+            saveRules() {
+                State.rules = document.getElementById('rules-editor').value;
+                document.getElementById('rules-display').innerText = State.rules;
+                this.saveLocalData();
+                UI.hideModal('rules-edit-modal');
+                UI.msg("Sucesso", "Regras atualizadas.");
+            },
+
+            // --- GRUPOS (SETUP) ---
+            addGroup() {
+                if(State.groups.length >= 4) { UI.msg("Atenção", "Máximo de 4 grupos recomendado para o layout."); return; }
+                const newId = State.groups.length;
+                State.groups.push({ id: newId, name: `Grupo ${String.fromCharCode(65 + newId)}`, colorIndex: newId % GAME_COLORS.length, score: 0 });
+                State.groupStats.push({ prof: 0, pos: 0, grad: 0, totalAnswers: 0 });
+                UI.renderSetupGroups();
+            },
+            removeGroup(index) {
+                if(State.groups.length <= 2) return;
+                State.groups.splice(index, 1);
+                State.groupStats.splice(index, 1);
+                UI.renderSetupGroups();
+            },
+            changeGroupName(index, name) { State.groups[index].name = name; },
+            changeGroupColor(groupIndex, colorIndex) {
+                State.groups[groupIndex].colorIndex = colorIndex;
+                UI.renderSetupGroups();
+            },
+
+            // --- IMPORT/EXPORT JSON ---
+            exportData() {
+                const dataStr = JSON.stringify({ 
+                    questions: State.questions, 
+                    rules: State.rules, 
+                    weights: State.weights, 
+                    roleNames: State.roleNames 
+                }, null, 2);
+                const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+                const exportFileDefaultName = 'debate_cientifico_dados.json';
+                const linkElement = document.createElement('a');
+                linkElement.setAttribute('href', dataUri);
+                linkElement.setAttribute('download', exportFileDefaultName);
+                linkElement.click();
+            },
+            importData(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        if(data.questions) State.questions = data.questions;
+                        if(data.rules) {
+                            State.rules = data.rules;
+                            document.getElementById('rules-editor').value = State.rules;
+                            document.getElementById('rules-display').innerText = State.rules;
+                        }
+                        if(data.weights) {
+                            State.weights = data.weights;
+                            document.getElementById('weight-prof').value = State.weights.prof;
+                            document.getElementById('weight-pos').value = State.weights.pos;
+                            document.getElementById('weight-grad').value = State.weights.grad;
+                        }
+                        if(data.roleNames) {
+                            State.roleNames = data.roleNames;
+                            document.getElementById('name-prof').value = State.roleNames.prof;
+                            document.getElementById('name-pos').value = State.roleNames.pos;
+                            document.getElementById('name-grad').value = State.roleNames.grad;
+                        }
+                        this.saveLocalData();
+                        UI.msg("Sucesso", "Dados importados com sucesso!");
+                    } catch (err) {
+                        UI.msg("Erro", "Arquivo JSON inválido.");
+                    }
+                };
+                reader.readAsText(file);
+            },
+
+            goToDraw() {
+                if(State.questions.length === 0) {
+                    UI.msg("Atenção", "Você precisa de perguntas no banco de dados.");
+                    return;
+                }
+                UI.showScreen('screen-draw');
+                
+                const container = document.getElementById('draw-groups-container');
+                container.innerHTML = State.groups.map((g, i) => `
+                    <div class="bg-slate-800 p-6 rounded-2xl border-2" style="border-color: ${GAME_COLORS[g.colorIndex].hex}">
+                        <h3 class="text-2xl font-bold mb-4 uppercase" style="color: ${GAME_COLORS[g.colorIndex].hex}">${g.name}</h3>
+                        <label class="block text-sm text-gray-400 mb-2">Número escolhido (0-100):</label>
+                        <input type="number" id="guess-${i}" min="0" max="100" class="w-full bg-slate-900 text-white text-3xl font-bold p-4 rounded-xl text-center border border-slate-600 focus:outline-none focus:border-white">
+                    </div>
+                `).join('');
+                
+                document.getElementById('btn-draw').classList.remove('hidden');
+                document.getElementById('btn-draw-continue').classList.add('hidden');
+                document.getElementById('draw-result-display').innerText = "?";
+            },
+
+            executeDraw() {
+                // Valida inputs
+                let guesses = [];
+                for(let i=0; i<State.groups.length; i++) {
+                    let val = parseInt(document.getElementById(`guess-${i}`).value);
+                    if(isNaN(val) || val < 0 || val > 100) {
+                        UI.msg("Aviso", `Insira um número válido (0-100) para o ${State.groups[i].name}.`);
+                        return;
+                    }
+                    guesses.push({ groupIndex: i, value: val });
+                }
+
+                document.getElementById('btn-draw').classList.add('hidden');
+                const display = document.getElementById('draw-result-display');
+                
+                // Animação de sorteio
+                let count = 0;
+                let finalNumber = Math.floor(Math.random() * 101); // 0-100
+                
+                let interval = setInterval(() => {
+                    display.innerText = Math.floor(Math.random() * 101);
+                    count++;
+                    if(count > 30) {
+                        clearInterval(interval);
+                        display.innerText = finalNumber;
+                        AudioSystem.playScore(); // Toca som
+                        
+                        // Acha vencedor (menor diferença absoluta)
+                        let closest = guesses.reduce((prev, curr) => {
+                            return (Math.abs(curr.value - finalNumber) < Math.abs(prev.value - finalNumber) ? curr : prev);
+                        });
+                        
+                        let winnerGroup = State.groups[closest.groupIndex];
+                        setTimeout(() => {
+                            UI.msg("Resultado", `O número sorteado foi ${finalNumber}.\n${winnerGroup.name} começa!`);
+                            document.getElementById('btn-draw-continue').classList.remove('hidden');
+                        }, 500);
+                    }
+                }, 50);
+            },
+
+            startMainGame() {
+                UI.updateBackgroundColors();
+                
+                // Reseta 'used' state caso seja re-jogo
+                State.questions.forEach(q => q.used = false);
+                State.groups.forEach(g => g.score = 0);
+                
+                // Reseta relatórios de estatísticas
+                State.stats = { prof: 0, pos: 0, grad: 0 };
+                State.groupStats.forEach(gs => { gs.prof = 0; gs.pos = 0; gs.grad = 0; gs.totalAnswers = 0; });
+
+                this.renderMainScreen();
+                this.renderQuestionGrid();
+                UI.showScreen('screen-main');
+            },
+
+            renderMainScreen() {
+                // Prepara dropdowns do Modal de Pontuação
+                const sel = document.getElementById('qm-group-select');
+                sel.innerHTML = State.groups.map((g, i) => `<option value="${i}">${g.name}</option>`).join('');
+
+                // Renderiza as funções atualizadas
+                const roleSel = document.getElementById('qm-role-select');
+                roleSel.innerHTML = `
+                    <option value="prof">${State.roleNames.prof} (${State.weights.prof} pts base)</option>
+                    <option value="pos">${State.roleNames.pos} (${State.weights.pos} pts base)</option>
+                    <option value="grad">${State.roleNames.grad} (${State.weights.grad} pts base)</option>
+                `;
+
+                // Renderiza as colunas de grupos
+                this.updateScoresDisplay();
+            },
+
+            updateScoresDisplay() {
+                // Ordena grupos por score desc para definir quem fica em destaque se houver > 2
+                let sortedGroups = [...State.groups].sort((a,b) => b.score - a.score);
+                let g1 = sortedGroups[0];
+                let g2 = sortedGroups[1] || sortedGroups[0]; // Fallback se só tiver 1 grupo (improvável)
+
+                const updateCol = (wrapperId, colId, group) => {
+                    const col = document.getElementById(colId);
+                    const wrapper = document.getElementById(wrapperId);
+                    if(!col || !wrapper) return;
+                    
+                    const nameEl = col.querySelector('.group-name');
+                    const scoreEl = col.querySelector('.group-score');
+                    const cHex = GAME_COLORS[group.colorIndex].hex;
+
+                    nameEl.innerText = group.name;
+                    nameEl.style.color = cHex;
+                    scoreEl.innerText = group.score;
+                    scoreEl.style.color = cHex;
+                    
+                    // Animação de pontuação
+                    scoreEl.classList.remove('winning-pulse');
+                    void scoreEl.offsetWidth; // trigger reflow
+                    scoreEl.classList.add('winning-pulse');
+                    setTimeout(() => scoreEl.classList.remove('winning-pulse'), 1000);
+
+                    // Lógica das Múltiplas Barras
+                    let totalBars = Math.floor(group.score / State.targetScore) + 1;
+                    let remainderScore = group.score % State.targetScore;
+                    
+                    // Se for múltiplo exato, e não zero, mantemos a barra cheia e não criamos uma nova vazia
+                    if (group.score > 0 && remainderScore === 0) {
+                        totalBars = Math.floor(group.score / State.targetScore);
+                        remainderScore = State.targetScore; 
+                    }
+
+                    // Limpa e recria as barras
+                    wrapper.innerHTML = '';
+                    
+                    for (let i = 0; i < totalBars; i++) {
+                        let pct = 100; // Por padrão, as barras anteriores estão cheias
+                        
+                        if (i === totalBars - 1) {
+                            // A última barra pega o resto, ou 100% se for múltiplo exato
+                            pct = (remainderScore / State.targetScore) * 100;
+                        }
+
+                        wrapper.innerHTML += `
+                            <div class="progress-container">
+                                <div class="progress-fill" style="background-color: ${cHex}; height: ${pct}%; box-shadow: 0 0 30px ${cHex};">
+                                    ${pct > 0 ? '<div class="progress-glow"></div>' : ''}
+                                </div>
+                            </div>
+                        `;
+                    }
+                };
+
+                updateCol('bars-wrapper-0', 'col-group-0', g1);
+                updateCol('bars-wrapper-1', 'col-group-1', g2);
+                
+                // Atualiza cores de fundo baseadas nos líderes
+                const root = document.documentElement;
+                root.style.setProperty('--color-1', GAME_COLORS[g1.colorIndex].hex);
+                root.style.setProperty('--color-1-rgb', GAME_COLORS[g1.colorIndex].rgb);
+                root.style.setProperty('--color-2', GAME_COLORS[g2.colorIndex].hex);
+                root.style.setProperty('--color-2-rgb', GAME_COLORS[g2.colorIndex].rgb);
+            },
+
+            renderQuestionGrid() {
+                const grid = document.getElementById('question-grid');
+                grid.innerHTML = State.questions.map((q, i) => `
+                    <div class="question-btn w-20 h-20 sm:w-24 sm:h-24 ${q.isIntro ? 'intro' : ''} ${q.used ? 'used' : ''}" 
+                         onclick="Game.openQuestion(${i})" id="btn-q-${i}">
+                        ${i + 1}
+                    </div>
+                `).join('');
+            },
+
+            openQuestion(index) {
+                const q = State.questions[index];
+                if(q.used) return;
+                
+                State.currentQuestionId = index;
+                
+                document.getElementById('qm-number').innerText = `#${index + 1}`;
+                document.getElementById('qm-text').innerText = q.text;
+                document.getElementById('qm-answer-text').innerText = q.answer || "Nenhuma resposta cadastrada.";
+                
+                // Reseta estado do modal
+                document.getElementById('qm-answer-box').classList.add('hidden');
+                document.getElementById('btn-show-answer').classList.remove('hidden');
+                document.getElementById('qm-golden').checked = false;
+                
+                Timer.reset();
+                UI.showModal('question-modal');
+            },
+
+            closeQuestionModal() {
+                Timer.pause();
+                UI.hideModal('question-modal');
+            },
+
+            showAnswer() {
+                document.getElementById('btn-show-answer').classList.add('hidden');
+                document.getElementById('qm-answer-box').classList.remove('hidden');
+                // Marca pergunta como usada visualmente
+                if(State.currentQuestionId !== null) {
+                    State.questions[State.currentQuestionId].used = true;
+                    document.getElementById(`btn-q-${State.currentQuestionId}`).classList.add('used');
+                }
+            },
+
+            awardPoints() {
+                const groupIdx = parseInt(document.getElementById('qm-group-select').value);
+                const roleKey = document.getElementById('qm-role-select').value;
+                const roleBase = State.weights[roleKey];
+                const mult = parseFloat(document.getElementById('qm-contrib-select').value);
+                const isGolden = document.getElementById('qm-golden').checked;
+                
+                let points = roleBase * mult;
+                if(isGolden) points *= 2;
+                points = Math.round(points); // Garante número inteiro
+
+                State.groups[groupIdx].score += points;
+                
+                // Grava a participação no relatório geral e do grupo
+                State.stats[roleKey] = (State.stats[roleKey] || 0) + 1;
+                
+                // Assegura que o array tenha o tamanho correto caso grupos tenham sido adicionados
+                if(!State.groupStats[groupIdx]) State.groupStats[groupIdx] = { prof: 0, pos: 0, grad: 0, totalAnswers: 0 };
+                State.groupStats[groupIdx][roleKey] = (State.groupStats[groupIdx][roleKey] || 0) + 1;
+                State.groupStats[groupIdx].totalAnswers++;
+                
+                AudioSystem.playScore();
+                this.updateScoresDisplay();
+                
+                // Dispara Confete
+                confetti({
+                    particleCount: 150,
+                    spread: 90,
+                    origin: { y: 0.6 },
+                    colors: ['#FFC107', '#FF5252', '#448AFF', '#69F0AE', '#E040FB'],
+                    zIndex: 200
+                });
+                
+                // Feedback visual rápido
+                const btn = document.getElementById('btn-award-points');
+                const origText = btn.innerHTML;
+                btn.innerHTML = `<i class="fas fa-check"></i> +${points} pts!`;
+                btn.classList.add('bg-green-400');
+                
+                setTimeout(() => {
+                    btn.innerHTML = origText;
+                    btn.classList.remove('bg-green-400');
+                }, 1000);
+            },
+
+            declareWinner() {
+                // Confirmação customizada antes de encerrar
+                document.getElementById('msg-title').innerText = "Encerrar Debate";
+                document.getElementById('msg-text').innerText = "Tem certeza que deseja encerrar o jogo e declarar o vencedor agora?";
+                
+                // Modifica os botões do modal temporariamente
+                const box = document.getElementById('msg-box').querySelector('.glass-panel');
+                const origHtml = box.innerHTML;
+                
+                box.innerHTML = `
+                    <h3 class="text-2xl font-bold mb-4">Encerrar Debate</h3>
+                    <p class="text-lg text-gray-300 mb-8">Tem certeza que deseja declarar o vencedor agora?</p>
+                    <div class="flex gap-4">
+                        <button id="btn-cancel-win" class="bg-slate-700 hover:bg-slate-600 px-8 py-3 rounded-xl font-bold transition w-full">Cancelar</button>
+                        <button id="btn-confirm-win" class="bg-yellow-600 hover:bg-yellow-500 px-8 py-3 rounded-xl font-bold transition w-full">Confirmar</button>
+                    </div>
+                `;
+                
+                document.getElementById('btn-cancel-win').onclick = () => {
+                    box.innerHTML = origHtml; // Restaura UI original do modal de msg
+                    UI.hideMsg();
+                };
+                
+                document.getElementById('btn-confirm-win').onclick = () => {
+                    box.innerHTML = origHtml;
+                    UI.hideMsg();
+                    this.showWinnerScreen();
+                };
+                
+                UI.showModal('msg-box');
+            },
+
+            showWinnerScreen() {
+                // Encontra maior pontuação
+                let sortedGroups = [...State.groups].sort((a,b) => b.score - a.score);
+                let winner = sortedGroups[0];
+                
+                // Verifica empate (simplificado)
+                let isTie = sortedGroups.length > 1 && sortedGroups[0].score === sortedGroups[1].score;
+                
+                const winnerNameEl = document.getElementById('winner-name');
+                const winnerScoreEl = document.getElementById('winner-score');
+                
+                if(isTie) {
+                    winnerNameEl.innerText = "EMPATE!";
+                    winnerNameEl.style.color = "white";
+                    winnerScoreEl.innerText = winner.score;
+                } else {
+                    winnerNameEl.innerText = winner.name;
+                    winnerNameEl.style.color = GAME_COLORS[winner.colorIndex].hex;
+                    winnerScoreEl.innerText = winner.score;
+                }
+                
+                // HTML dos relatórios individuais
+                const groupsReportsHTML = sortedGroups.map(g => {
+                    const stats = State.groupStats[g.id];
+                    const color = GAME_COLORS[g.colorIndex].hex;
+                    return `
+                        <div class="bg-slate-900/80 p-6 rounded-xl border-2 mb-4" style="border-color: ${color}40">
+                            <h4 class="text-2xl font-bold mb-4 uppercase flex justify-between items-center" style="color: ${color}">
+                                ${g.name} 
+                                <span class="text-white text-3xl">${g.score} <span class="text-sm text-gray-400">pts</span></span>
+                            </h4>
+                            <div class="grid grid-cols-3 gap-2 text-center">
+                                <div>
+                                    <div class="text-xs text-gray-400 uppercase tracking-widest">${State.roleNames.prof}</div>
+                                    <div class="text-2xl font-bold text-white">${stats ? stats.prof : 0}</div>
+                                </div>
+                                <div>
+                                    <div class="text-xs text-gray-400 uppercase tracking-widest">${State.roleNames.pos}</div>
+                                    <div class="text-2xl font-bold text-white">${stats ? stats.pos : 0}</div>
+                                </div>
+                                <div>
+                                    <div class="text-xs text-gray-400 uppercase tracking-widest">${State.roleNames.grad}</div>
+                                    <div class="text-2xl font-bold text-white">${stats ? stats.grad : 0}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                // Preenche o relatório Geral e Individual
+                const statsEl = document.getElementById('stats-report');
+                statsEl.innerHTML = `
+                    <h3 class="text-2xl font-bold mb-6 text-white uppercase tracking-wider">Desempenho Geral</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="bg-slate-900/80 p-6 rounded-xl border border-slate-700">
+                            <div class="font-bold text-blue-400 text-lg mb-2">${State.roleNames.prof}</div>
+                            <div class="text-4xl text-white font-black">${State.stats.prof} <span class="text-base text-gray-400 font-normal">respostas</span></div>
+                        </div>
+                        <div class="bg-slate-900/80 p-6 rounded-xl border border-slate-700">
+                            <div class="font-bold text-blue-400 text-lg mb-2">${State.roleNames.pos}</div>
+                            <div class="text-4xl text-white font-black">${State.stats.pos} <span class="text-base text-gray-400 font-normal">respostas</span></div>
+                        </div>
+                        <div class="bg-slate-900/80 p-6 rounded-xl border border-slate-700">
+                            <div class="font-bold text-blue-400 text-lg mb-2">${State.roleNames.grad}</div>
+                            <div class="text-4xl text-white font-black">${State.stats.grad} <span class="text-base text-gray-400 font-normal">respostas</span></div>
+                        </div>
+                    </div>
+                    
+                    <h3 class="text-2xl font-bold mb-4 text-white uppercase tracking-wider mt-8">Desempenho por Grupo</h3>
+                    <div class="flex flex-col gap-4 text-left">
+                        ${groupsReportsHTML}
+                    </div>
+                `;
+                
+                AudioSystem.playScore();
+                setTimeout(() => AudioSystem.playScore(), 300);
+                setTimeout(() => AudioSystem.playScore(), 600);
+
+                UI.showScreen('screen-winner');
+            }
+        };
+
+        // Inicia
+        window.onload = () => {
+            Game.init();
+        };
+    </script>
+</body>
+</html>
